@@ -1,6 +1,6 @@
 # 인증 서비스 테스트
 
-상태 — 검토 초안. 기본 테스트는 JUnit으로 데이터베이스 연결 없이 Spring 애플리케이션 컨텍스트가 시작되는지 확인한다. 실행 명령은 [개발 워크플로](workflow.md#로컬-검증)를 참고한다. 표는 기능 구현 시 적용할 검증 기준이다.
+상태 — 검토 초안. 기본 테스트는 외부 의존성을 모의 처리하고 DB 자동 설정을 제외한 Spring 컨텍스트에서, 별도 프로필 없이 이메일 인증 API 경로가 등록되는지 확인한다. 실행 명령은 [개발 워크플로](workflow.md#로컬-검증)를 참고한다. 표는 기능 구현 시 적용할 검증 기준이다.
 
 | 대상 | 관찰 가능한 검증 결과 |
 | --- | --- |
@@ -9,8 +9,8 @@
 | 세션 갱신 (AUTH-003) | 유효한 Refresh Token으로 갱신한다. Rotation·재사용·동시 갱신 사례는 정책 확정 후 정한다. |
 | 로그아웃 (AUTH-004) | 현재 세션 로그아웃과 반복 요청의 계약 준수를 확인한다. 기존 토큰 효력은 정책 확정 후 검증한다. |
 | 보호자 가입 및 중복 확인 (AUTH-005, AUTH-012, AUTH-014) | 아이디·닉네임별 사용 가능 여부, 확인한 값을 바꾸면 재확인, 필수 입력과 닉네임 길이 경계, CAREGIVER 자동 부여, 최종 가입에서 아이디·닉네임·이메일 중복 거부 |
-| 가입용 이메일 인증 (AUTH-006) | 인증번호 발송·검증, 인증되지 않은 요청이나 누락·만료·다른 이메일·재사용 증명값 거부, 동시 사용 시 증명값으로 가입을 한 번만 완료 |
-| 보호자 가입 트랜잭션 (AUTH-005) | 각 고유값의 동시 가입 충돌 시 한 건만 커밋, 저장 도중 실패하면 세 테이블에 부분 가입 데이터가 남지 않음, User Service 프로필 생성 완료 전에도 svc_identity 커밋에 따라 성공 응답 |
+| 가입용 이메일 인증 (AUTH-006) | 인증번호 발송·검증과 만료·제한, 동시 검증 시 증명값 한 번 발급, 이메일·목적에 묶인 Redis 증명값과 TTL 확인 |
+| 보호자 가입 트랜잭션 (AUTH-005) | 누락·만료·다른 이메일·재사용 증명값 거부와 동시 소비 방지, 소비 후 저장 실패 시 재인증, 각 고유값의 동시 가입 충돌 시 한 건만 커밋, 저장 도중 실패하면 세 테이블에 부분 가입 데이터가 남지 않음, User Service 프로필 생성 완료 전에도 svc_identity 커밋에 따라 성공 응답 |
 | 이메일 인증 및 복구 (AUTH-006, AUTH-007, AUTH-009, AUTH-010) | 인증번호 만료, 가입 이메일로 아이디 찾기, 이메일 인증 후 비밀번호 재설정, 재설정 후 기존 세션의 동작은 정책 확정 후 검증 |
 | 소셜 로그인 (AUTH-008) | 네이버·카카오 연동, 기존 계정 안내 및 로그인 페이지 이동, 신규 닉네임 생성과 변경 |
 | 회원 탈퇴 (AUTH-011) | 탈퇴 직후 새 로그인과 같은 이메일 재가입 거부. 기존 세션은 정책 확정 후 검증. |
@@ -18,6 +18,27 @@
 | 키 운영 (JWKS를 채택하는 경우) | 정상 교체 구간의 유효 토큰 처리, 알 수 없는 키와 조회 실패 시 승인된 재조회·거부 동작, 긴급 폐기 후 허용 지연 내 거부 |
 
 ## 환경과 도구 결정
+
+기본 테스트는 다음 외부 저장소 테스트를 건너뛴다. 저장소 루트의 `.env`에 MySQL과 Redis 연결 정보를 설정하고, 테스트 전용 환경을 사용한다. 인증번호 통합 테스트는 Brevo 호출을 모의 처리하며 실행마다 고유 접두어의 Redis 테스트 키를 생성한다. 키는 최대 1시간 뒤 만료된다. 접속 테스트는 Flyway를 비활성화하고 MySQL `SELECT`, Redis `PING`·`INFO`만 수행한다.
+
+Windows PowerShell에서 각각 실행한다.
+
+```powershell
+$env:AUTH006_INTEGRATION_TEST = 'true'
+.\gradlew.bat test --tests com.kjh.auth.adapter.in.web.EmailVerificationIntegrationTests
+Remove-Item Env:AUTH006_INTEGRATION_TEST
+
+$env:AUTH_STORAGE_CONNECTION_TEST = 'true'
+.\gradlew.bat test --tests com.kjh.auth.DeployedStorageConnectionTests
+Remove-Item Env:AUTH_STORAGE_CONNECTION_TEST
+```
+
+Git Bash에서 각각 실행한다.
+
+```bash
+AUTH006_INTEGRATION_TEST=true ./gradlew test --tests com.kjh.auth.adapter.in.web.EmailVerificationIntegrationTests
+AUTH_STORAGE_CONNECTION_TEST=true ./gradlew test --tests com.kjh.auth.DeployedStorageConnectionTests
+```
 
 - 언어·빌드 설정, 호출자 계약, 실제 저장소·외부 공급자 및 CI 실행 환경을 확인해 단위·통합·계약 테스트의 경계를 정한다.
 - 실제 연동에서만 확인할 수 있는 저장 원자성, 경합, 키 교체와 장애 복구를 구분하고 필요한 실행 환경과 격리 방법을 정한다.

@@ -9,12 +9,10 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @EnabledIfEnvironmentVariable(named = "AUTH_STORAGE_CONNECTION_TEST", matches = "true")
-@ActiveProfiles("email-verification")
 @SpringBootTest(classes = DeployedStorageConnectionTests.ConnectionConfiguration.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {"spring.flyway.enabled=false", "spring.sql.init.mode=never"})

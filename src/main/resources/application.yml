@@ -1,8 +1,10 @@
+server:
+  forward-headers-strategy: none
 spring:
   config:
     import: optional:file:.env[.properties]
   application:
-    name: auth-service
+    name: louie-kury-auth-service
   datasource:
     url: ${MYSQL_URL}
     username: ${MYSQL_USERNAME}
@@ -11,15 +13,31 @@ spring:
       data-source-properties:
         connectionTimeZone: "+09:00"
         forceConnectionTimeZoneToSession: true
+  sql:
+    init:
+      mode: never
+  flyway:
+    enabled: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
----
-spring:
-  config:
-    activate:
-      on-profile: "!email-verification"
-  autoconfigure:
-    exclude: org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
+      include-binding-errors: never
+  jackson:
+    time-zone: Asia/Seoul
+logging:
+  pattern:
+    dateformat: yyyy-MM-dd'T'HH:mm:ss.SSSXXX,Asia/Seoul
+auth:
+  signup:
+    email:
+      from: ${BREVO_SENDER_EMAIL:}
+      brevo-api-key: ${BREVO_API_KEY:}
+      hmac-key: ${VERIFICATION_CODE_HMAC_KEY:}
+      trusted-gateway: ${AUTH_SIGNUP_EMAIL_TRUSTED_GATEWAY:}
+      global-send-limit-per-minute: ${AUTH_SIGNUP_EMAIL_GLOBAL_SEND_LIMIT_PER_MINUTE:100}

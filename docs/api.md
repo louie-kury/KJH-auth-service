@@ -34,7 +34,7 @@
 
 ### 공통 응답 형식
 
-아래는 합의한 변경 계약이다. 현재 구현은 발송 성공 시 빈 본문, 검증 성공 시 최상위 증명값, 실패 시 문자열 `code`를 반환한다. 응답 래핑, 오류 코드·메시지 및 필드별 검증 오류 수집은 구현 반영이 필요하다.
+두 API는 아래 공통 응답 계약을 따른다.
 
 - 성공 본문은 숫자 `code`와 `data`를 포함한다. 반환 데이터가 없으면 `data`는 `null`이다.
 - 실패 본문은 숫자 `code`, 고정 문자열 `errorCode`, 사람이 읽을 수 있는 `message`를 포함한다.
@@ -84,7 +84,9 @@ Content-Type: application/json
 | --- | --- | --- |
 | `400` | `VALIDATION_FAILED` | 이메일 누락·타입·형식 오류, 잘못된 JSON |
 | `403` | `REQUEST_SOURCE_UNTRUSTED` | 유효한 요청 출처 IP를 확인할 수 없음 |
-| `429` | `RATE_LIMITED` | 재발송 간격 또는 이메일·IP·서비스 전체 발송 한도 초과 |
+| `429` | `EMAIL_RESEND_COOLDOWN` | 같은 이메일의 발송 예약·재발송 간격 60초 제한 |
+| `429` | `EMAIL_SEND_LIMIT_EXCEEDED` | 같은 이메일로 최근 1시간 발송 5회 도달 |
+| `429` | `RATE_LIMITED` | IP·서비스 전체 발송 한도 초과 |
 | `503` | `SERVICE_UNAVAILABLE` | Brevo HTTP API 또는 Redis 처리 실패 |
 
 ```http
@@ -111,12 +113,14 @@ Retry-After: 60
 
 {
   "code": 429,
-  "errorCode": "RATE_LIMITED",
-  "message": "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+  "errorCode": "EMAIL_RESEND_COOLDOWN",
+  "message": "인증번호는 60초 간격으로 요청할 수 있습니다."
 }
 ```
 
-`Retry-After`는 재시도까지 기다릴 초다. 예시의 `60`은 고정값이 아니며 현재 제한 상태에 따라 달라진다.
+이메일별 시간당 한도에 도달하면 `errorCode`는 `EMAIL_SEND_LIMIT_EXCEEDED`, `message`는 `이메일별 인증번호 발송은 최근 1시간에 최대 5회까지 가능합니다.`다. 재발송 간격과 시간당 한도에 동시에 걸리면 시간당 한도를 안내한다.
+
+`Retry-After`는 모든 제한을 고려해 재시도까지 기다릴 초다. 예시의 `60`은 고정값이 아니며 현재 제한 상태에 따라 달라진다.
 
 #### 처리 규칙
 
@@ -236,7 +240,7 @@ Content-Type: application/json
 }
 ```
 
-JSON 이외의 요청은 `415 Unsupported Media Type`으로 응답한다. 합의한 공통 오류 형식으로 통일할 예정이며, 현재 구현은 검증 API의 415 본문이 비어 있고 발송 API는 Spring 기본 오류 처리에 따른다.
+JSON 이외의 요청은 `415 Unsupported Media Type`과 공통 오류 본문을 반환한다. `errorCode`는 `UNSUPPORTED_MEDIA_TYPE`, `message`는 `Content-Type은 application/json이어야 합니다.`다. 검증 요청은 IP 제한 확인 후 미디어 타입과 본문을 검사한다.
 
 ### 문서 작성 참고
 
