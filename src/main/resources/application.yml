@@ -1,3 +1,25 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: auth-service
+  datasource:
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      data-source-properties:
+        connectionTimeZone: "+09:00"
+        forceConnectionTimeZoneToSession: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+---
+spring:
+  config:
+    activate:
+      on-profile: "!email-verification"
+  autoconfigure:
+    exclude: org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
