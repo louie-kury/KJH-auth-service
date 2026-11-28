@@ -1,6 +1,6 @@
 # 인증 서비스 아키텍처
 
-상태 — 검토 초안. 기본 애플리케이션 진입점은 `com.kjh.auth.AuthApplication`이다. Spring Boot Web MVC 기반으로 데이터베이스 연결 없이 기동한다.
+상태 — 검토 초안. 기본 애플리케이션 진입점은 `com.kjh.auth.AuthApplication`이다. 이메일 인증 실행에는 Redis와 Brevo 설정이 필요하다. MySQL 연결 설정은 유지하며 Flyway 자동 실행은 현재 비활성화한다.
 
 ## 확정된 구성
 
